@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Motion Menagerie · Vol 4 — Sideways &amp; Snap</title>
+<style>
+/* === SHARED TOKENS === */
+:root {
+    --bg: #0f1419;
+    --surface: #1a2028;
+    --surface-2: #242c37;
+    --text: #f5f3ee;
+    --text-muted: #8b93a1;
+    --border: rgba(245,243,238,0.08);
+    --primary: #5eead4;
+    --accent: #fb7185;
+    --radius: 14px;
+    --maxw: 1080px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    overflow-x: hidden;
+}
+.wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 28px; }
+.eyebrow {
+    display: inline-block; font-size: 12px; font-weight: 800;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--primary); padding: 4px 10px;
+    border: 1px solid var(--border); border-radius: 999px;
+    margin-bottom: 14px;
+}
+.pattern-intro { padding: 100px 0 40px; }
+.pattern-intro h2 { font-size: clamp(28px, 4vw, 44px); margin: 0 0 10px; letter-spacing: -0.02em; }
+.pattern-intro .desc { color: var(--text-muted); font-size: 15px; max-width: 640px; margin: 0 0 20px; }
+
+/* === NAV === */
+.mm-nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 900;
+    background: rgba(15,20,25,0.85); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border); height: 60px;
+}
+.mm-nav-inner {
+    max-width: var(--maxw); margin: 0 auto; padding: 0 28px;
+    height: 100%; display: flex; align-items: center; justify-content: space-between;
+}
+.mm-brand { font-weight: 800; font-size: 16px; letter-spacing: -0.01em; }
+.mm-brand span { color: var(--primary); }
+.mm-tabs { display: flex; gap: 4px; }
+.mm-tabs a {
+    color: var(--text-muted); text-decoration: none; font-size: 13px; font-weight: 600;
+    padding: 8px 12px; border-radius: 8px; border-bottom: 2px solid transparent;
+    transition: color 0.2s, border-color 0.2s;
+}
+.mm-tabs a:hover { color: var(--text); }
+.mm-tabs a.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+/* === HERO === */
+.hero-intro { padding: 180px 0 80px; text-align: center; }
+.hero-intro h1 {
+    font-size: clamp(40px, 7vw, 80px); margin: 0 0 18px; letter-spacing: -0.03em;
+    line-height: 1.02; font-weight: 800;
+}
+.hero-intro h1 .mint { color: var(--primary); }
+.hero-intro .sub { color: var(--text-muted); font-size: 18px; max-width: 560px; margin: 0 auto 24px; }
+.hero-intro .rm-note {
+    display: inline-block; font-size: 12px; padding: 6px 14px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 999px; color: var(--text-muted);
+}
+
+/* === 22 PINNED HORIZONTAL TIMELINE === */
+#driver-22 { position: relative; height: 400vh; }
+.h-pin {
+    position: sticky; top: 0; height: 100vh; overflow: hidden;
+    display: flex; align-items: center;
+}
+.h-strip {
+    display: flex; flex-direction: row; height: 70vh;
+    padding: 0 10vw; gap: 4vw;
+    transform: translateX(var(--h-x, 0px));
+    will-change: transform;
+}
+.h-panel {
+    flex: 0 0 60vw; max-width: 760px; height: 100%;
+    border-radius: 22px; padding: 40px;
+    border: 1px solid var(--border);
+    display: flex; flex-direction: column; justify-content: space-between;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.35);
+}
+.h-panel:nth-child(1) { background: linear-gradient(150deg, #1a2028, #2a3240); }
+.h-panel:nth-child(2) { background: linear-gradient(150deg, #0f766e, #5eead4); color: #0f1419; }
+.h-panel:nth-child(3) { background: linear-gradient(150deg, #1e293b, #a78bfa); }
+.h-panel:nth-child(4) { background: linear-gradient(150deg, #7c2d12, #fb7185); }
+.h-panel:nth-child(5) { background: linear-gradient(150deg, #1a2028, #facc15); color: #0f1419; }
+.h-panel .year { font-size: clamp(44px, 7vw, 90px); font-weight: 900; letter-spacing: -0.04em; line-height: 1; }
+.h-panel h3 { margin: 10px 0 6px; font-size: clamp(22px, 3vw, 30px); letter-spacing: -0.02em; }
+.h-panel p { margin: 0; max-width: 440px; font-size: 15px; opacity: 0.85; }
+.h-panel .tag { font-size: 12px; letter-spacing: 0.12em; font-weight: 800; align-self: flex-start; opacity: 0.85; }
+
+.h-progress {
+    position: absolute; left: 0; bottom: 32px; width: 100%; height: 4px;
+    background: transparent; pointer-events: none;
+}
+.h-progress::before {
+    content: ''; display: block;
+    margin: 0 10vw;
+    height: 3px; background: var(--border); border-radius: 3px;
+}
+.h-progress-fill {
+    position: absolute; left: 10vw; bottom: 32px; height: 3px; border-radius: 3px;
+    background: linear-gradient(90deg, var(--primary), var(--accent));
+    width: calc((100vw - 20vw) * var(--h-pct, 0));
+    will-change: width;
+}
+
+/* === 23 HORIZONTAL SNAP GALLERY === */
+.snap-wrap { padding: 20px 0 40px; }
+.snap-hint {
+    text-align: center; color: var(--text-muted); font-size: 13px;
+    letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 10px;
+}
+.snap-scroll {
+    display: flex; gap: 16px; overflow-x: auto; padding: 20px 28px 32px;
+    scroll-snap-type: x mandatory; scroll-padding: 28px;
+    -webkit-overflow-scrolling: touch;
+}
+.snap-scroll::-webkit-scrollbar { height: 6px; }
+.snap-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.snap-card {
+    flex: 0 0 75%; max-width: 520px; height: 340px; border-radius: 20px;
+    scroll-snap-align: center;
+    display: flex; align-items: flex-end; padding: 30px; color: var(--text);
+    position: relative; overflow: hidden;
+}
+.snap-card:nth-child(1) { background: linear-gradient(160deg, #1a2028, #5eead4); }
+.snap-card:nth-child(2) { background: linear-gradient(160deg, #1a2028, #fb7185); }
+.snap-card:nth-child(3) { background: linear-gradient(160deg, #1a2028, #a78bfa); }
+.snap-card:nth-child(4) { background: linear-gradient(160deg, #1a2028, #facc15); color: #0f1419; }
+.snap-card:nth-child(5) { background: linear-gradient(160deg, #1a2028, #38bdf8); }
+.snap-card:nth-child(6) { background: linear-gradient(160deg, #1a2028, #34d399); }
+.snap-card:nth-child(7) { background: linear-gradient(160deg, #1a2028, #f472b6); }
+.snap-card:nth-child(8) { background: linear-gradient(160deg, #1a2028, #fb923c); }
+.snap-card h3 { margin: 0; font-size: clamp(24px, 3.5vw, 32px); letter-spacing: -0.02em; }
+.snap-card .emoji { position: absolute; top: 24px; right: 24px; font-size: 36px; }
+
+.snap-dots { display: flex; justify-content: center; gap: 8px; margin-top: 4px; }
+.snap-dots button {
+    width: 8px; height: 8px; padding: 0; border-radius: 50%; border: 0;
+    background: var(--border); cursor: pointer; transition: background 0.2s, transform 0.2s;
+}
+.snap-dots button.active { background: var(--primary); transform: scale(1.4); }
+
+/* === 24 COUNTER-SCROLL TEXT RIBBONS === */
+.ribbons { padding: 60px 0; overflow: hidden; }
+.ribbon {
+    display: flex; gap: 40px; white-space: nowrap;
+    font-size: clamp(40px, 10vw, 140px); font-weight: 900; letter-spacing: -0.04em;
+    line-height: 1; padding: 12px 0;
+    will-change: transform;
+}
+.ribbon-a { transform: translateX(var(--rx-a, 0px)); }
+.ribbon-b {
+    transform: translateX(var(--rx-b, 0px));
+    -webkit-text-stroke: 2px var(--primary); color: transparent;
+}
+.ribbon span { display: inline-block; padding-right: 40px; }
+.ribbon .fill { color: var(--accent); }
+
+/* === 25 DIAGONAL SCROLL STRIP === */
+.diag-wrap {
+    position: relative; padding: 80px 0; overflow: hidden;
+    min-height: 520px;
+}
+.diag-band {
+    position: absolute; left: -20%; right: -20%;
+    display: flex; gap: 48px; white-space: nowrap;
+    font-size: clamp(40px, 9vw, 120px); font-weight: 900; letter-spacing: -0.03em;
+    line-height: 1; padding: 14px 0;
+    will-change: transform;
+}
+.diag-band.one {
+    top: 60px; transform: rotate(-6deg) translateX(var(--dx-1, 0px));
+    background: var(--primary); color: #0f1419;
+}
+.diag-band.two {
+    top: 220px; transform: rotate(-6deg) translateX(var(--dx-2, 0px));
+    -webkit-text-stroke: 2px var(--text); color: transparent;
+}
+.diag-band.three {
+    top: 360px; transform: rotate(-6deg) translateX(var(--dx-3, 0px));
+    background: var(--accent); color: #0f1419;
+}
+.diag-band span { display: inline-block; padding: 0 24px; }
+
+/* === FOOTER === */
+footer {
+    padding: 60px 0 80px; text-align: center; color: var(--text-muted);
+    font-size: 13px; border-top: 1px solid var(--border); margin-top: 40px;
+}
+footer a { color: var(--primary); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+
+/* === REDUCED MOTION === */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+    #driver-22 { height: auto !important; }
+    .h-pin { position: static !important; height: auto !important; }
+    .h-strip { transform: none !important; flex-wrap: wrap; gap: 20px; padding: 20px; height: auto; }
+    .h-panel { flex: 1 1 280px; height: 320px; }
+    .ribbon-a, .ribbon-b { transform: none !important; }
+    .diag-band { transform: rotate(-6deg) !important; }
+}
+</style>
+</head>
+<body>
+
+<nav class="mm-nav">
+    <div class="mm-nav-inner">
+        <div class="mm-brand">Motion <span>Menagerie</span></div>
+        <div class="mm-tabs">
+            <a href="motion-menagerie-vol1.html">Vol 1 · Reveals</a>
+            <a href="motion-menagerie-vol2.html">Vol 2 · Cursor</a>
+            <a href="motion-menagerie-vol3.html">Vol 3 · Zoom</a>
+            <a href="motion-menagerie-vol4.html" class="active">Vol 4 · Sideways</a>
+        </div>
+    </div>
+</nav>
+
+<section class="hero-intro wrap">
+    <h1>Motion <span class="mint">Menagerie</span><br>Volume 4</h1>
+    <p class="sub">Sideways &amp; snap — Patterns 22 through 25. Pinned horizontal timelines, CSS scroll-snap, counter-scrolling ribbons, tilted bands.</p>
+    <span class="rm-note">Respects <code>prefers-reduced-motion</code></span>
+</section>
+
+<!-- 22 PINNED HORIZONTAL TIMELINE -->
+<div class="wrap pattern-intro">
+    <span class="eyebrow">22 · Pinned Horizontal Timeline</span>
+    <h2>Scroll down, move sideways.</h2>
+    <p class="desc">A 400vh driver pins a 100vh viewport, and JS translates a horizontal strip by <code>-X%</code> based on scroll progress. The classic.</p>
+</div>
+<div id="driver-22">
+    <div class="h-pin">
+        <div class="h-strip" id="h-strip">
+            <div class="h-panel"><span class="tag">FOUNDATION</span><div><div class="year">1944</div><h3>An association is formed.</h3><p>Illinois parks and recreation leaders unite to share standards, training, and advocacy.</p></div></div>
+            <div class="h-panel"><span class="tag">GROWTH</span><div><div class="year">1972</div><h3>Education expands.</h3><p>Formal certification pathways and professional development emerge.</p></div></div>
+            <div class="h-panel"><span class="tag">REACH</span><div><div class="year">1998</div><h3>Into the digital age.</h3><p>Member tools move online. Conference registration, directories, and training hubs.</p></div></div>
+            <div class="h-panel"><span class="tag">SCALE</span><div><div class="year">2015</div><h3>Data &amp; analytics.</h3><p>Dashboards and benchmarking replace annual spreadsheets.</p></div></div>
+            <div class="h-panel"><span class="tag">FUTURE</span><div><div class="year">2026</div><h3>AI &amp; automation.</h3><p>Workflows, insight engines, and community-scale intelligence.</p></div></div>
+        </div>
+        <div class="h-progress"></div>
+        <div class="h-progress-fill" id="h-progress-fill"></div>
+    </div>
+</div>
+
+<!-- 23 HORIZONTAL SNAP GALLERY -->
+<div class="wrap pattern-intro">
+    <span class="eyebrow">23 · Horizontal Snap Gallery</span>
+    <h2>Pure CSS scroll-snap.</h2>
+    <p class="desc"><code>scroll-snap-type: x mandatory</code> on the container, <code>scroll-snap-align: center</code> on each card. Works perfectly on touch. JS only for the progress dots.</p>
+</div>
+<div class="snap-wrap">
+    <div class="snap-hint">scroll sideways →</div>
+    <div class="snap-scroll" id="snap-scroll">
+        <div class="snap-card"><span class="emoji">🌿</span><h3>01 Meadow</h3></div>
+        <div class="snap-card"><span class="emoji">🌸</span><h3>02 Bloom</h3></div>
+        <div class="snap-card"><span class="emoji">🌌</span><h3>03 Cosmos</h3></div>
+        <div class="snap-card"><span class="emoji">🌞</span><h3>04 Solar</h3></div>
+        <div class="snap-card"><span class="emoji">🌊</span><h3>05 Tide</h3></div>
+        <div class="snap-card"><span class="emoji">🍃</span><h3>06 Leaf</h3></div>
+        <div class="snap-card"><span class="emoji">🌷</span><h3>07 Petal</h3></div>
+        <div class="snap-card"><span class="emoji">🔥</span><h3>08 Ember</h3></div>
+    </div>
+    <div class="snap-dots" id="snap-dots"></div>
+</div>
+
+<!-- 24 COUNTER-SCROLL RIBBONS -->
+<div class="wrap pattern-intro">
+    <span class="eyebrow">24 · Counter-Scroll Ribbons</span>
+    <h2>Two rows, opposite directions.</h2>
+    <p class="desc">Row A drifts left, row B drifts right — both driven by vertical scroll. Mix of filled and outlined typography so they read as layers.</p>
+</div>
+<div class="ribbons">
+    <div class="ribbon ribbon-a" id="ribbon-a">
+        <span class="fill">Parks</span><span>·</span><span>Trails</span><span class="fill">·</span><span>People</span><span>·</span><span class="fill">Play</span>
+        <span>·</span><span class="fill">Parks</span><span>·</span><span>Trails</span><span class="fill">·</span><span>People</span><span>·</span><span class="fill">Play</span>
+    </div>
+    <div class="ribbon ribbon-b" id="ribbon-b">
+        <span>Community</span><span>·</span><span>Recreation</span><span>·</span><span>Futures</span><span>·</span><span>Together</span>
+        <span>·</span><span>Community</span><span>·</span><span>Recreation</span><span>·</span><span>Futures</span><span>·</span><span>Together</span>
+    </div>
+</div>
+
+<!-- 25 DIAGONAL SCROLL STRIP -->
+<div class="wrap pattern-intro">
+    <span class="eyebrow">25 · Diagonal Scroll Strip</span>
+    <h2>Tilted bands, scroll-linked.</h2>
+    <p class="desc">Three rotated bands translate at different speeds as you scroll. Bands overflow the edges so the rotation never leaves a gap.</p>
+</div>
+<div class="diag-wrap">
+    <div class="diag-band one" id="diag-1">
+        <span>SIDEWAYS</span><span>·</span><span>TILTED</span><span>·</span><span>BANDS</span><span>·</span><span>SIDEWAYS</span><span>·</span><span>TILTED</span><span>·</span><span>BANDS</span>
+    </div>
+    <div class="diag-band two" id="diag-2">
+        <span>Y2K</span><span>·</span><span>ZINE</span><span>·</span><span>HERO</span><span>·</span><span>Y2K</span><span>·</span><span>ZINE</span><span>·</span><span>HERO</span>
+    </div>
+    <div class="diag-band three" id="diag-3">
+        <span>MOTION</span><span>·</span><span>LAYER</span><span>·</span><span>STRIP</span><span>·</span><span>MOTION</span><span>·</span><span>LAYER</span><span>·</span><span>STRIP</span>
+    </div>
+</div>
+
+<footer>
+    <div class="wrap">
+        Part of the <b>web-animation-design</b> skill ·
+        <a href="motion-menagerie-vol1.html">Vol 1 · Reveals</a> ·
+        <a href="motion-menagerie-vol2.html">Vol 2 · Cursor</a> ·
+        <a href="motion-menagerie-vol3.html">Vol 3 · Zoom</a>
+    </div>
+</footer>
+
+<script>
+(function() {
+    'use strict';
+
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    function driverProgress(driver) {
+        var rect = driver.getBoundingClientRect();
+        var winH = window.innerHeight;
+        var total = rect.height - winH;
+        var scrolled = Math.min(Math.max(-rect.top, 0), total);
+        return total > 0 ? scrolled / total : 0;
+    }
+
+    // === 22 Pinned Horizontal Timeline ===
+    var driver22 = document.getElementById('driver-22');
+    var strip = document.getElementById('h-strip');
+    var fill = document.getElementById('h-progress-fill');
+
+    // === 23 Horizontal Snap Gallery dots ===
+    (function() {
+        var scroller = document.getElementById('snap-scroll');
+        var dotsWrap = document.getElementById('snap-dots');
+        if (!scroller || !dotsWrap) return;
+        var cards = scroller.querySelectorAll('.snap-card');
+        var dots = [];
+        cards.forEach(function(_, i) {
+            var b = document.createElement('button');
+            b.setAttribute('aria-label', 'Go to card ' + (i + 1));
+            b.addEventListener('click', function() {
+                cards[i].scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            });
+            if (i === 0) b.classList.add('active');
+            dotsWrap.appendChild(b);
+            dots.push(b);
+        });
+        var io = new IntersectionObserver(function(entries) {
+            entries.forEach(function(e) {
+                if (e.isIntersecting) {
+                    var idx = Array.prototype.indexOf.call(cards, e.target);
+                    dots.forEach(function(d, i) { d.classList.toggle('active', i === idx); });
+                }
+            });
+        }, { root: scroller, threshold: 0.6 });
+        cards.forEach(function(c) { io.observe(c); });
+    })();
+
+    if (reduce) return;
+
+    // === Shared scroll loop for translate-based patterns ===
+    var ribbonA = document.getElementById('ribbon-a');
+    var ribbonB = document.getElementById('ribbon-b');
+    var diag1 = document.getElementById('diag-1');
+    var diag2 = document.getElementById('diag-2');
+    var diag3 = document.getElementById('diag-3');
+
+    var ticking = false;
+
+    function update() {
+        // 22: horizontal timeline
+        if (driver22 && strip) {
+            var p = driverProgress(driver22);
+            var stripWidth = strip.scrollWidth;
+            var viewportWidth = window.innerWidth;
+            var travel = Math.max(0, stripWidth - viewportWidth);
+            strip.style.setProperty('--h-x', (-travel * p) + 'px');
+            if (fill) fill.style.setProperty('--h-pct', p);
+        }
+
+        var y = window.scrollY;
+
+        // 24: ribbons counter-scroll
+        if (ribbonA) ribbonA.style.setProperty('--rx-a', (-y * 0.4) + 'px');
+        if (ribbonB) ribbonB.style.setProperty('--rx-b', (y * 0.4 - 400) + 'px');
+
+        // 25: diagonal bands
+        if (diag1) diag1.style.setProperty('--dx-1', (-y * 0.2) + 'px');
+        if (diag2) diag2.style.setProperty('--dx-2', (y * 0.3 - 200) + 'px');
+        if (diag3) diag3.style.setProperty('--dx-3', (-y * 0.15 + 100) + 'px');
+
+        ticking = false;
+    }
+
+    function onScroll() {
+        if (!ticking) {
+            requestAnimationFrame(update);
+            ticking = true;
+        }
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    update();
+})();
+</script>
+
+</body>
+</html>

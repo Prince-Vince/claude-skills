@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Motion Menagerie · Vol 1 — Foundational Reveals</title>
+<style>
+/* === SHARED TOKENS === */
+:root {
+    --bg: #0f1419;
+    --surface: #1a2028;
+    --surface-2: #242c37;
+    --text: #f5f3ee;
+    --text-muted: #8b93a1;
+    --border: rgba(245,243,238,0.08);
+    --primary: #5eead4;
+    --accent: #fb7185;
+    --radius: 14px;
+    --maxw: 1080px;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+}
+.wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 28px; }
+.eyebrow {
+    display: inline-block; font-size: 12px; font-weight: 800;
+    letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--primary); padding: 4px 10px;
+    border: 1px solid var(--border); border-radius: 999px;
+    margin-bottom: 14px;
+}
+section.pattern { padding: 120px 0; border-top: 1px solid var(--border); }
+section.pattern h2 { font-size: clamp(28px, 4vw, 44px); margin: 0 0 10px; letter-spacing: -0.02em; }
+section.pattern .desc { color: var(--text-muted); font-size: 15px; max-width: 640px; margin: 0 0 40px; }
+
+/* === NAV === */
+.mm-nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 900;
+    background: rgba(15,20,25,0.85); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border); height: 60px;
+}
+.mm-nav-inner {
+    max-width: var(--maxw); margin: 0 auto; padding: 0 28px;
+    height: 100%; display: flex; align-items: center; justify-content: space-between;
+}
+.mm-brand { font-weight: 800; font-size: 16px; letter-spacing: -0.01em; }
+.mm-brand span { color: var(--primary); }
+.mm-tabs { display: flex; gap: 4px; }
+.mm-tabs a {
+    color: var(--text-muted); text-decoration: none; font-size: 13px; font-weight: 600;
+    padding: 8px 12px; border-radius: 8px; border-bottom: 2px solid transparent;
+    transition: color 0.2s, border-color 0.2s;
+}
+.mm-tabs a:hover { color: var(--text); }
+.mm-tabs a.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+/* === HERO === */
+.hero {
+    padding: 180px 0 120px; text-align: center;
+}
+.hero h1 {
+    font-size: clamp(40px, 7vw, 80px); margin: 0 0 18px; letter-spacing: -0.03em;
+    line-height: 1.02; font-weight: 800;
+}
+.hero h1 .mint { color: var(--primary); }
+.hero .sub { color: var(--text-muted); font-size: 18px; max-width: 560px; margin: 0 auto 24px; }
+.hero .rm-note {
+    display: inline-block; font-size: 12px; padding: 6px 14px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 999px; color: var(--text-muted);
+}
+
+/* === 06 SCROLL PROGRESS BAR === */
+.scroll-progress {
+    position: fixed; top: 60px; left: 0; height: 3px; width: 100%; z-index: 800;
+    background: var(--accent); transform-origin: left; transform: scaleX(0);
+    will-change: transform;
+}
+
+/* === 01 FADE-UP REVEAL === */
+.reveal {
+    opacity: 0; transform: translateY(28px);
+    transition: opacity 0.7s cubic-bezier(.2,.8,.2,1), transform 0.7s cubic-bezier(.2,.8,.2,1);
+}
+.reveal.visible { opacity: 1; transform: translateY(0); }
+.fade-demo .block {
+    padding: 22px 26px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); margin-bottom: 14px;
+}
+
+/* === 02 STAGGERED CASCADE === */
+.stagger-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+}
+.card-stagger {
+    padding: 28px 22px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); min-height: 140px;
+    opacity: 0; transform: translateY(22px);
+    transition: opacity 0.55s ease-out, transform 0.55s ease-out;
+    transition-delay: calc(var(--i, 0) * 120ms);
+}
+.card-stagger.visible { opacity: 1; transform: translateY(0); }
+.card-stagger .num { color: var(--primary); font-weight: 800; font-size: 13px; letter-spacing: 0.12em; }
+.card-stagger h3 { margin: 6px 0 6px; font-size: 18px; }
+.card-stagger p { margin: 0; color: var(--text-muted); font-size: 14px; }
+@media (max-width: 720px) { .stagger-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .stagger-grid { grid-template-columns: 1fr; } }
+
+/* === 03 TIMELINE DRAW-IN === */
+.timeline { position: relative; padding: 12px 0 12px 48px; }
+.timeline::before {
+    content: ''; position: absolute; left: 16px; top: 0; bottom: 0; width: 3px;
+    background: var(--border); border-radius: 3px;
+}
+.timeline-progress {
+    position: absolute; left: 16px; top: 0; width: 3px; height: 0;
+    background: linear-gradient(to bottom, var(--primary), var(--accent));
+    border-radius: 3px; will-change: height;
+}
+.timeline-step { position: relative; padding: 14px 10px 40px 20px; }
+.timeline-step .dot {
+    position: absolute; left: -40px; top: 18px; width: 18px; height: 18px;
+    background: var(--bg); border: 3px solid var(--text-muted); border-radius: 50%;
+    opacity: 0; transform: scale(0.4);
+    transition: opacity 0.4s ease, transform 0.4s ease, border-color 0.4s ease;
+}
+.timeline-step.visible .dot {
+    opacity: 1; transform: scale(1); border-color: var(--primary);
+}
+.timeline-step h3 { margin: 0 0 6px; font-size: 17px; }
+.timeline-step p { margin: 0; color: var(--text-muted); font-size: 14px; }
+
+/* === 04 COUNTER ROLL-UP === */
+.stats-row {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+}
+.stat {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 32px 20px; text-align: center;
+}
+.stat .stat-num {
+    font-size: clamp(40px, 6vw, 60px); font-weight: 800; letter-spacing: -0.03em;
+    color: var(--primary); line-height: 1; margin-bottom: 8px;
+}
+.stat .stat-label { color: var(--text-muted); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* === 05 HEADING UNDERLINE WIPE === */
+.heading-wipe { display: inline-block; position: relative; }
+.heading-wipe::after {
+    content: ''; display: block; height: 3px; width: 0;
+    background: var(--accent); margin-top: 10px; border-radius: 3px;
+    transition: width 0.7s cubic-bezier(.2,.8,.2,1);
+}
+.heading-wipe.visible::after { width: 80px; }
+
+/* === 07 CARD HOVER LIFT === */
+.lift-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.card-lift {
+    padding: 28px 22px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); min-height: 160px; cursor: pointer;
+    transition: transform 0.3s cubic-bezier(.2,.8,.2,1),
+                box-shadow 0.3s cubic-bezier(.2,.8,.2,1),
+                border-color 0.3s;
+}
+.card-lift:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 14px 36px rgba(0,0,0,0.3), 0 0 0 1px rgba(94,234,212,0.12);
+    border-color: rgba(94,234,212,0.28);
+}
+.card-lift h3 { margin: 0 0 6px; font-size: 18px; }
+.card-lift p { margin: 0; color: var(--text-muted); font-size: 14px; }
+@media (max-width: 720px) { .lift-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .lift-grid { grid-template-columns: 1fr; } }
+
+/* === 08 SOFT PARALLAX === */
+.parallax-hero {
+    position: relative; height: 440px; border-radius: var(--radius);
+    overflow: hidden; border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    isolation: isolate;
+}
+.parallax-bg {
+    position: absolute; inset: -40px 0;
+    background:
+        radial-gradient(circle at 20% 30%, rgba(94,234,212,0.35), transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(251,113,133,0.35), transparent 50%),
+        linear-gradient(135deg, #1a2028, #2a3240);
+    transform: translateY(calc(var(--scroll, 0) * 0.3px));
+    will-change: transform;
+}
+.parallax-content {
+    position: relative; z-index: 1; text-align: center; padding: 20px;
+}
+.parallax-content h3 {
+    font-size: clamp(28px, 4vw, 42px); margin: 0 0 8px; letter-spacing: -0.02em;
+}
+.parallax-content p { margin: 0; color: var(--text); opacity: 0.85; }
+
+/* === BONUS: SCROLL SPEEDOMETER === */
+.speedometer {
+    position: fixed; bottom: 20px; right: 20px; z-index: 850;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 999px; padding: 8px 16px; font-size: 12px;
+    color: var(--text-muted); font-variant-numeric: tabular-nums;
+    display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+}
+.speedometer .pulse {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--primary);
+    box-shadow: 0 0 10px var(--primary);
+}
+.speedometer b { color: var(--text); font-weight: 700; }
+
+/* === FOOTER === */
+footer {
+    padding: 60px 0 80px; text-align: center; color: var(--text-muted);
+    font-size: 13px; border-top: 1px solid var(--border); margin-top: 40px;
+}
+footer a { color: var(--primary); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+
+/* === REDUCED MOTION === */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+    .reveal, .card-stagger, .timeline-step .dot, .heading-wipe::after {
+        opacity: 1 !important; transform: none !important; width: 80px !important;
+    }
+    .parallax-bg { transform: none !important; }
+    .speedometer { display: none; }
+}
+</style>
+</head>
+<body>
+
+<nav class="mm-nav">
+    <div class="mm-nav-inner">
+        <div class="mm-brand">Motion <span>Menagerie</span></div>
+        <div class="mm-tabs">
+            <a href="motion-menagerie-vol1.html" class="active">Vol 1 · Reveals</a>
+            <a href="motion-menagerie-vol2.html">Vol 2 · Cursor</a>
+            <a href="motion-menagerie-vol3.html">Vol 3 · Zoom</a>
+            <a href="motion-menagerie-vol4.html">Vol 4 · Sideways</a>
+        </div>
+    </div>
+</nav>
+
+<div class="scroll-progress" id="scroll-progress"></div>
+
+<section class="hero wrap">
+    <h1>Motion <span class="mint">Menagerie</span><br>Volume 1</h1>
+    <p class="sub">Foundational reveals — Patterns 01 through 08. The bread-and-butter of modern scroll animation, all vanilla CSS + JS, zero dependencies.</p>
+    <span class="rm-note">Respects <code>prefers-reduced-motion</code></span>
+</section>
+
+<!-- 01 FADE-UP REVEAL -->
+<section class="pattern">
+    <div class="wrap fade-demo">
+        <span class="eyebrow">01 · Fade-Up Reveal</span>
+        <h2 class="reveal">The foundational pattern.</h2>
+        <p class="desc reveal">Elements translate up 24–30px while fading in. Applied to headings, paragraphs, and content blocks. Uses IntersectionObserver to add a <code>.visible</code> class. Transition runs once, then the class sticks.</p>
+        <div class="block reveal">First block — observes when it enters the viewport.</div>
+        <div class="block reveal">Second block — staggers naturally because it enters later.</div>
+        <div class="block reveal">Third block — same pattern, different content.</div>
+    </div>
+</section>
+
+<!-- 02 STAGGERED CASCADE -->
+<section class="pattern">
+    <div class="wrap">
+        <span class="eyebrow">02 · Staggered Cascade</span>
+        <h2 class="reveal">Grid cards with a cascade.</h2>
+        <p class="desc reveal">Cards share the same reveal, but each has a <code>--i</code> custom property driving <code>transition-delay: calc(var(--i) * 120ms)</code>. Wave effect with no JS stagger logic.</p>
+        <div class="stagger-grid" id="stagger-grid">
+            <div class="card-stagger" style="--i:0"><div class="num">01</div><h3>Observe</h3><p>Scroll to trigger the reveal.</p></div>
+            <div class="card-stagger" style="--i:1"><div class="num">02</div><h3>Stagger</h3><p>Each card delays by 120ms.</p></div>
+            <div class="card-stagger" style="--i:2"><div class="num">03</div><h3>Reveal</h3><p>Opacity and translateY converge.</p></div>
+            <div class="card-stagger" style="--i:3"><div class="num">04</div><h3>Land</h3><p>Final state stays after the first play.</p></div>
+            <div class="card-stagger" style="--i:4"><div class="num">05</div><h3>Repeat</h3><p>Scale this pattern to any grid.</p></div>
+            <div class="card-stagger" style="--i:5"><div class="num">06</div><h3>Done</h3><p>Six items, one transition rule.</p></div>
+        </div>
+    </div>
+</section>
+
+<!-- 03 TIMELINE DRAW-IN -->
+<section class="pattern">
+    <div class="wrap">
+        <span class="eyebrow">03 · Timeline Draw-In</span>
+        <h2 class="reveal">A line that draws as you scroll.</h2>
+        <p class="desc reveal">Vertical progress line grows from 0 to full height based on how far you've scrolled through the timeline container. Dots pop in (scale 0→1) when each step becomes visible.</p>
+        <div class="timeline" id="timeline">
+            <div class="timeline-progress" id="timeline-progress"></div>
+            <div class="timeline-step"><span class="dot"></span><h3>Step one</h3><p>Line starts drawing as the section enters the viewport.</p></div>
+            <div class="timeline-step"><span class="dot"></span><h3>Step two</h3><p>Dots scale in as they hit the reveal threshold.</p></div>
+            <div class="timeline-step"><span class="dot"></span><h3>Step three</h3><p>Progress tracks scroll position continuously.</p></div>
+            <div class="timeline-step"><span class="dot"></span><h3>Step four</h3><p>Final dot lights up at the end of the container.</p></div>
+        </div>
+    </div>
+</section>
+
+<!-- 04 COUNTER ROLL-UP -->
+<section class="pattern">
+    <div class="wrap">
+        <span class="eyebrow">04 · Counter Roll-Up</span>
+        <h2 class="reveal">Numbers that count up.</h2>
+        <p class="desc reveal">Each stat counts from 0 to its target over ~1.4s with cubic ease-out. Triggered once by IntersectionObserver. Uses <code>data-count</code> and <code>data-suffix</code>.</p>
+        <div class="stats-row" id="stats-row">
+            <div class="stat"><div class="stat-num" data-count="60" data-suffix="+">0</div><div class="stat-label">Agencies</div></div>
+            <div class="stat"><div class="stat-num" data-count="24" data-suffix="K">0</div><div class="stat-label">Members</div></div>
+            <div class="stat"><div class="stat-num" data-count="98" data-suffix="%">0</div><div class="stat-label">Satisfaction</div></div>
+        </div>
+    </div>
+</section>
+
+<!-- 05 HEADING UNDERLINE WIPE -->
+<section class="pattern">
+    <div class="wrap">
+        <span class="eyebrow">05 · Heading Underline Wipe</span>
+        <h2><span class="heading-wipe">A coral line wipes in.</span></h2>
+        <p class="desc reveal">The <code>::after</code> pseudo-element animates from width 0 to 80px when the heading becomes visible. Small gesture, outsized payoff on section titles.</p>
+    </div>
+</section>
+
+<!-- 06 SCROLL PROGRESS BAR (global, no section body) -->
+<section class="pattern">
+    <div class="wrap">
+        <span class="eyebrow">06 · Scroll Progress Bar</span>
+        <h2 class="reveal">Already active at the top of this page.</h2>
+        <p class="desc reveal">The thin coral bar under the nav fills left-to-right as you scroll. Driven by <code>scrollY / (docHeight - innerHeight)</code> via <code>transform: scaleX()</code> with <code>transform-origin: left</code> — GPU-friendly.</p>
+    </div>
+</section>
+
+<!-- 07 CARD HOVER LIFT -->
+<section class="pattern">
+    <div class="wrap">
+        <span class="eyebrow">07 · Card Hover Lift</span>
+        <h2 class="reveal">Hover to lift.</h2>
+        <p class="desc reveal">Subtle <code>translateY(-6px)</code> plus a deeper shadow on hover. Restrained — no rotation, no bounce. Sells "interactive" without feeling cartoony.</p>
+        <div class="lift-grid">
+            <div class="card-lift"><h3>Hover me</h3><p>Translate, shadow, border tint.</p></div>
+            <div class="card-lift"><h3>And me</h3><p>Each card handles its own hover state.</p></div>
+            <div class="card-lift"><h3>And me</h3><p>Cheap, clean, everywhere-applicable.</p></div>
+        </div>
+    </div>
+</section>
+
+<!-- 08 SOFT PARALLAX -->
+<section class="pattern">
+    <div class="wrap">
+        <span class="eyebrow">08 · Soft Parallax</span>
+        <h2 class="reveal">Hero background drifts.</h2>
+        <p class="desc reveal">Background translates at ~30% of scroll speed. Kept deliberately subtle — 20–40px of total movement. JS updates a <code>--scroll</code> custom property inside rAF.</p>
+        <div class="parallax-hero">
+            <div class="parallax-bg" id="parallax-bg"></div>
+            <div class="parallax-content">
+                <h3>Drifting gradient</h3>
+                <p>Scroll past me — the background moves slower than the foreground.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer>
+    <div class="wrap">
+        Part of the <b>web-animation-design</b> skill ·
+        <a href="motion-menagerie-vol2.html">Vol 2 · Cursor</a> ·
+        <a href="motion-menagerie-vol3.html">Vol 3 · Zoom</a> ·
+        <a href="motion-menagerie-vol4.html">Vol 4 · Sideways</a>
+    </div>
+</footer>
+
+<div class="speedometer" id="speedometer" aria-hidden="true">
+    <span class="pulse"></span><span><b id="spd-value">0</b> px/s</span>
+</div>
+
+<script>
+(function() {
+    'use strict';
+
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // === Shared IntersectionObserver for .reveal, .card-stagger, .timeline-step, .heading-wipe ===
+    var io = new IntersectionObserver(function(entries) {
+        entries.forEach(function(e) {
+            if (e.isIntersecting) {
+                e.target.classList.add('visible');
+                io.unobserve(e.target);
+            }
+        });
+    }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.reveal, .card-stagger, .timeline-step, .heading-wipe').forEach(function(el) {
+        io.observe(el);
+    });
+
+    // === 04 Counter Roll-Up ===
+    function animateCounter(el) {
+        var target = parseFloat(el.dataset.count) || 0;
+        var suffix = el.dataset.suffix || '';
+        var duration = 1400, start = performance.now();
+        function step(now) {
+            var t = Math.min((now - start) / duration, 1);
+            var eased = 1 - Math.pow(1 - t, 3);
+            var value = Math.round(eased * target);
+            el.textContent = value + suffix;
+            if (t < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+    }
+    var countersIO = new IntersectionObserver(function(entries) {
+        entries.forEach(function(e) {
+            if (e.isIntersecting) {
+                animateCounter(e.target);
+                countersIO.unobserve(e.target);
+            }
+        });
+    }, { threshold: 0.6 });
+    document.querySelectorAll('.stat-num').forEach(function(el) { countersIO.observe(el); });
+
+    // === 06 Scroll Progress + 08 Parallax + Bonus Speedometer ===
+    var progressEl = document.getElementById('scroll-progress');
+    var parallaxEl = document.getElementById('parallax-bg');
+    var speedEl = document.getElementById('spd-value');
+    var timelineEl = document.getElementById('timeline');
+    var timelineProgressEl = document.getElementById('timeline-progress');
+
+    var lastY = window.scrollY, lastT = performance.now(), ticking = false;
+
+    function update() {
+        var y = window.scrollY;
+        var docH = document.documentElement.scrollHeight - window.innerHeight;
+        var pct = docH > 0 ? y / docH : 0;
+
+        // 06 Scroll progress bar
+        if (progressEl) progressEl.style.transform = 'scaleX(' + pct + ')';
+
+        // 08 Parallax
+        if (parallaxEl) parallaxEl.style.setProperty('--scroll', y);
+
+        // 03 Timeline progress (height scales with how far through the timeline container you are)
+        if (timelineEl && timelineProgressEl) {
+            var rect = timelineEl.getBoundingClientRect();
+            var vh = window.innerHeight;
+            var total = rect.height;
+            var scrolled = Math.max(0, vh * 0.5 - rect.top);
+            var fill = Math.min(1, scrolled / (total * 0.85));
+            timelineProgressEl.style.height = (fill * 100) + '%';
+        }
+
+        // Speedometer (px/s)
+        var now = performance.now();
+        var dt = (now - lastT) / 1000;
+        if (dt > 0 && speedEl) {
+            var vel = Math.abs(y - lastY) / dt;
+            speedEl.textContent = Math.round(vel);
+        }
+        lastY = y; lastT = now;
+
+        ticking = false;
+    }
+
+    function onScroll() {
+        if (!ticking) {
+            requestAnimationFrame(update);
+            ticking = true;
+        }
+    }
+
+    if (!reduce) {
+        window.addEventListener('scroll', onScroll, { passive: true });
+        update();
+    } else {
+        // Freeze the progress bar full, skip parallax, fill timeline
+        if (progressEl) progressEl.style.transform = 'scaleX(1)';
+        if (timelineProgressEl) timelineProgressEl.style.height = '100%';
+    }
+})();
+</script>
+
+</body>
+</html>

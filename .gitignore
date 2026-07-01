@@ -1,0 +1,11 @@
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+.vscode/
+
+# Never commit these if a skill ever adds them
+node_modules/
+.env
+*.local
