@@ -30,6 +30,18 @@ Restart Claude Code (or start a new session) and the skills will be discovered a
 
 ---
 
+## Beyond the skills — full environment
+
+The skills are only half the setup. To fully reproduce this Claude environment on another machine/account:
+
+| Folder | What it covers |
+|---|---|
+| [`mcp/`](mcp/) | MCP servers — the claude.ai connectors (Google Drive, Higgsfield, Supabase, M365) re-add checklist + local Playwright MCP registration |
+| [`clis/`](clis/) | Every CLI the skills depend on, plus [`clis/setup.ps1`](clis/setup.ps1) to install them all on a fresh Windows box |
+| [`.env.example`](.env.example) | The API-key variable **names** the skills expect (Firecrawl, Valyu, …) — copy to a git-ignored `.env` and fill in |
+
+---
+
 ## Inventory
 
 Source key: **installed** = came from the agent-skills library · **local** = lives directly in `~/.claude/skills/` (custom / self-authored).
