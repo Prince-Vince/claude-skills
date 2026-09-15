@@ -42,6 +42,12 @@ The skills are only half the setup. To fully reproduce this Claude environment o
 
 ---
 
+## Added skills (2026-09-14)
+
+- **skill-inspector** — NVIDIA SkillSpector-backed security review of agent skills.
+- **archify** — interactive architecture, workflow, sequence, data-flow, and lifecycle diagrams.
+
+Both folders include their bundled resources and licenses. See [source revisions and restore instructions](SKILL-SOURCES.md). The original inventory below describes the earlier 38-skill snapshot; the backup currently contains 41 skill folders.
 ## Inventory
 
 Source key: **installed** = came from the agent-skills library · **local** = lives directly in `~/.claude/skills/` (custom / self-authored).
