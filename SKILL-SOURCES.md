@@ -1,5 +1,15 @@
 # Added skills — 2026-09-14
 
+## Scrolling presentation kit — 2026-09-25
+
+- `scrolling-presentations`: created from the browser-presentation workflow and Microsoft example developed in this session; includes original workflow guidance, supporting references, and a no-overwrite copy helper.
+- `reference-led-ui`: the user's custom local reference-led design skill, copied without machine-specific paths.
+- `rtf`: the user's supplied RTFSkill.zip with local safety fixes and portability adjustments. See `skills/rtf/PORTABILITY.md` for the source hash, changes, dependencies, and validation limits. No new license is assigned to the original code.
+- `frontend-design` and `web-animation-design`: already present in this repository; left unchanged and linked as companions.
+- Microsoft SVG icons: official unmodified Power Platform and Azure icons, used in the educational example under their original terms. See `skills/scrolling-presentations/assets/microsoft-example/ASSET-NOTICES.md`.
+
+No scraped source pages, external transcripts, private account settings, environments, or downloaded videos are included in the new kit.
+
 | Skill | Upstream | Pinned commit | License |
 |---|---|---|---|
 | skill-inspector | https://github.com/NVIDIA/SkillSpector | 03e8f56bdb9ddb85d7db09ca592f97dd0f545c41 | Apache-2.0 |

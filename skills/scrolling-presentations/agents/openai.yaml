@@ -1,0 +1,4 @@
+interface:
+  display_name: "Scrolling Presentations"
+  short_description: "Build concise animated browser presentations"
+  default_prompt: "Use $scrolling-presentations to build a Jack Roberts style scrolling explainer for business leaders, with minimal text and one connected example."

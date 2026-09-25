@@ -9,3 +9,7 @@ desktop.ini
 node_modules/
 .env
 *.local
+.venv/
+__pycache__/
+*.pyc
+.firecrawl/

@@ -1,5 +1,11 @@
 # Claude Skills — Vince Davis
 
+## Scrolling presentation kit — added September 25, 2026
+
+**[Start here: Jack Roberts style scrolling presentations](SCROLLING-PRESENTATIONS.md).** Includes a dedicated skill, your reference-led design workflow, the working Microsoft example with Power Pages, and an optional portable RTF video-analysis helper. The existing `frontend-design` and `web-animation-design` skills are included in the restore instructions. The kit works with skill-compatible agents including Claude Code and Codex.
+
+The counts and inventory below describe the earlier backup snapshots.
+
 A portable backup of the [Claude Code](https://claude.com/claude-code) **agent skills** installed under `~/.claude/skills/`. Everything here is self-contained (real file content, no symlinks), so you can drop it into any other Claude account or machine.
 
 - **38 skills**, ~0.65 MB, plain Markdown + a few helper scripts
