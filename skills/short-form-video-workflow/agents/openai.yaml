@@ -1,0 +1,4 @@
+interface:
+  display_name: "Short-Form Video Workflow"
+  short_description: "Research, script, edit, and review original shorts"
+  default_prompt: "Use $short-form-video-workflow to turn my source material and recorded A-roll into a polished short."
