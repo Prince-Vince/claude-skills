@@ -1,5 +1,9 @@
 # Claude Skills — Vince Davis
 
+## Shared Humanizer skill — added November 19, 2026
+
+[Humanizer 4.0.0](skills/humanizer) is available for compatible agents and models. See [shared installation instructions](SHARED-SKILLS.md) and the [source/security review](reviews/2026-11-19-impeccable-humanizer.md). The full Impeccable runtime was downloaded and reviewed but is not installed or bundled because its reviewed releases retain vulnerable TLS dependencies.
+
 ## Scrolling presentation kit — added September 25, 2026
 
 **[Start here: Jack Roberts style scrolling presentations](SCROLLING-PRESENTATIONS.md).** Includes a dedicated skill, your reference-led design workflow, the working Microsoft example with Power Pages, and an optional portable RTF video-analysis helper. The existing `frontend-design` and `web-animation-design` skills are included in the restore instructions. The kit works with skill-compatible agents including Claude Code and Codex.

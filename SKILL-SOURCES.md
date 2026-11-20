@@ -1,5 +1,15 @@
 # Added skills — 2026-09-14
 
+## Humanizer — 2026-11-19
+
+- Upstream: [blader/humanizer](https://github.com/blader/humanizer/tree/a32f24407364c74c812b43c15926d638bee1e072).
+- Pinned commit: `a32f24407364c74c812b43c15926d638bee1e072`; skill version 4.0.0; MIT license retained.
+- Exact upstream payload: `SKILL.md`, `LICENSE`, and `agents/openai.yaml`. No candidate runtime or validator was executed.
+- Reviewed using NVIDIA SkillSpector 2.11.2 `--no-llm` plus independent source inspection. See [findings and limitations](reviews/2026-11-19-impeccable-humanizer.md).
+- [Portable install helper and agent locations](SHARED-SKILLS.md). Local copies were verified against the repository payload.
+
+Impeccable was also downloaded and reviewed at commit `b49177d32788f2dc585c42831d845dacf1ebed2c`, but its full runtime was rejected for installation at the reviewed revisions. It is deliberately absent from discoverable skill folders; the review records its pinned sources and blockers.
+
 ## Scrolling presentation kit — 2026-09-25
 
 - `scrolling-presentations`: created from the browser-presentation workflow and Microsoft example developed in this session; includes original workflow guidance, supporting references, and a no-overwrite copy helper.
