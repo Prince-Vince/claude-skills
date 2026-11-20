@@ -33,8 +33,18 @@ Repeat `--destination` for other applications' actual skill directories. Existin
 
 For an application without local skill discovery, supply `skills/humanizer/SKILL.md` as project instructions or a supported skill upload, retaining the license when redistributing. Cloud applications and other computers need their own setup.
 
-## Impeccable: downloaded, installation blocked
+## Impeccable: patched Windows runtime
 
-The full runtime was reviewed at the user's request. It is **not included in discoverable skill folders and was not executed or installed**. The pinned engine and the newer engine release checked on November 19, 2026 contain affected TLS dependencies. The runtime also supports launching coding agents with approval and sandbox bypass flags.
+[`skills/impeccable`](skills/impeccable) contains the locally built Windows x64 runtime, full design references, and a launcher that verifies the engine hash. The TLS dependencies are patched. Live edits use the parent chat's existing approval policy; standalone workers stay off where their required boundaries cannot be enforced. Telemetry and automatic critique/health uploads are disabled by the launcher. No hooks or MCP servers are installed.
 
-See the [review and source pins](reviews/2026-11-19-impeccable-humanizer.md). No playbook-only substitute was installed. Reassess a patched upstream release before installing the full runtime.
+Use `scripts/impeccable.cmd` from the installed skill directory on Windows, or its extensionless launcher from Git Bash. Resolve example `.agents/skills/impeccable/...` paths against the actual loaded skill's location. This package cannot automatically provision Linux, macOS, cloud chats, or another computer.
+
+Install only the reviewed package from this repository:
+
+```powershell
+python scripts/install-reviewed-skill.py --skill impeccable --destination "$env:USERPROFILE/.agents/skills" --destination "$env:USERPROFILE/.claude/skills"
+```
+
+Repeat `--destination` for your actual Hermes profile skill directories. The helper refuses differing existing installations unless replacement and an external backup directory are explicitly supplied, and verifies every copied file. Reload skills or start fresh sessions after installation.
+
+See the [local-patch review](reviews/2026-11-19-impeccable-local-patch.md) and [reproducible source patches](patches/impeccable). The [earlier upstream review](reviews/2026-11-19-impeccable-humanizer.md) remains a historical record; its rejected stock runtime is not the binary bundled here.

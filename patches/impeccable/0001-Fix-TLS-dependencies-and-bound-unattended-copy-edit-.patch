@@ -1,0 +1,582 @@
+From b627afbc74fedb7983103f6bfd173dc1329b13f3 Mon Sep 17 00:00:00 2001
+From: Prince-Vince <Vince21494@gmail.com>
+Date: Thu, 19 Nov 2026 19:05:55 -0600
+Subject: [PATCH 1/3] Fix TLS dependencies and bound unattended copy-edit
+ workers
+
+Prepared with AI assistance for Vince. Includes an isolated Windows build recipe and a hash-pinned parent-chat distribution; no upstream issue or PR is created.
+---
+ Cargo.lock                           |  12 +-
+ crates/context/Cargo.toml            |   2 +-
+ crates/live/src/copy_edit_agent.rs   | 162 ++++++++++++++++++++++++---
+ local-build/.gitignore               |   5 +
+ local-build/Dockerfile               |   9 ++
+ local-build/LOCAL-REVIEW.md          |  15 +++
+ local-build/README.md                |  22 ++++
+ local-build/audit-dependencies.py    |  20 ++++
+ local-build/chromium-test            |   3 +
+ local-build/dependency-review.json   |   5 +
+ local-build/launchers/impeccable     |  14 +++
+ local-build/launchers/impeccable.cmd |   4 +
+ local-build/launchers/impeccable.ps1 |  13 +++
+ local-build/package.py               |  42 +++++++
+ local-build/verify-sandbox.mjs       |  53 +++++++++
+ 15 files changed, 360 insertions(+), 21 deletions(-)
+ create mode 100644 local-build/.gitignore
+ create mode 100644 local-build/Dockerfile
+ create mode 100644 local-build/LOCAL-REVIEW.md
+ create mode 100644 local-build/README.md
+ create mode 100644 local-build/audit-dependencies.py
+ create mode 100644 local-build/chromium-test
+ create mode 100644 local-build/dependency-review.json
+ create mode 100644 local-build/launchers/impeccable
+ create mode 100644 local-build/launchers/impeccable.cmd
+ create mode 100644 local-build/launchers/impeccable.ps1
+ create mode 100644 local-build/package.py
+ create mode 100644 local-build/verify-sandbox.mjs
+
+diff --git a/Cargo.lock b/Cargo.lock
+index 10dfa98..fd1f6c0 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -666,7 +666,7 @@ dependencies = [
+  "unicode-normalization",
+  "ureq",
+  "url",
+- "webpki-roots 1.0.9",
++ "webpki-roots 1.0.10",
+ ]
+ 
+ [[package]]
+@@ -1254,9 +1254,9 @@ dependencies = [
+ 
+ [[package]]
+ name = "rustls-webpki"
+-version = "0.103.15"
++version = "0.103.16"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "f3c3cf1d8b1e7d4927e2d154c3fcb02979afb9939629c62cd9048d4f07b60ac2"
++checksum = "4443b1b6d39d7c663139942cc4558262562d2c84123bb6282ef177009ca8b281"
+ dependencies = [
+  "ring",
+  "rustls-pki-types",
+@@ -1791,14 +1791,14 @@ version = "0.26.11"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "521bc38abb08001b01866da9f51eb7c5d647a19260e00054a8c7fd5f9e57f7a9"
+ dependencies = [
+- "webpki-roots 1.0.9",
++ "webpki-roots 1.0.10",
+ ]
+ 
+ [[package]]
+ name = "webpki-roots"
+-version = "1.0.9"
++version = "1.0.10"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "7dcd9d09a39985f5344844e66b0c530a33843579125f23e21e9f0f220850f22a"
++checksum = "1c1c8e20c8a38fc7d65abfe74eb7280e4aa667e8eec8bc84996d2874810748d9"
+ dependencies = [
+  "rustls-pki-types",
+ ]
+diff --git a/crates/context/Cargo.toml b/crates/context/Cargo.toml
+index c092b5f..3baa1d9 100644
+--- a/crates/context/Cargo.toml
++++ b/crates/context/Cargo.toml
+@@ -24,7 +24,7 @@ flate2 = { version = "1", default-features = false, features = ["zlib-rs"] }
+ url = "2"
+ ureq = { version = "2", default-features = false, features = ["tls", "json", "socks-proxy"] }
+ rustls-native-certs = "0.8"
+-webpki-roots = "1"
++webpki-roots = "1.0.10"
+ unicode-normalization = "0.1.25"
+ 
+ [dev-dependencies]
+diff --git a/crates/live/src/copy_edit_agent.rs b/crates/live/src/copy_edit_agent.rs
+index 2c103cf..0670cc0 100644
+--- a/crates/live/src/copy_edit_agent.rs
++++ b/crates/live/src/copy_edit_agent.rs
+@@ -1513,6 +1513,16 @@ fn run_codex(
+     log_path: &str,
+     timeout_ms: Option<f64>,
+ ) -> Result<(), String> {
++    validate_worker_root(cwd, env)?;
++    if cfg!(target_os = "windows") {
++        return Err("The reviewed Codex worker is disabled on Windows: its sandbox requires broader read access than this worker permits. Continue in the parent chat.".into());
++    }
++    require_worker_version("codex", (0, 169, 0))?;
++    let args = codex_args(cwd, env, result_path);
++    run_agent_process("codex", &args, prompt, cwd, env, log_path, timeout_ms, None)
++}
++
++fn codex_args(cwd: &str, env: &Env, result_path: &str) -> Vec<String> {
+     let effort = match env.get("IMPECCABLE_LIVE_COPY_AGENT_EFFORT") {
+         Some(v) if !v.is_empty() => v.clone(),
+         _ => "low".to_string(),
+@@ -1521,13 +1531,38 @@ fn run_codex(
+         "exec".into(),
+         "--cd".into(),
+         cwd.to_string(),
+-        "--dangerously-bypass-approvals-and-sandbox".into(),
++        "--strict-config".into(),
++        "--ignore-user-config".into(),
++        "--ignore-rules".into(),
+         "--ephemeral".into(),
+         "--output-last-message".into(),
+         result_path.to_string(),
+         "-c".into(),
+-        format!("model_reasoning_effort=\"{}\"", effort),
++        format!("model_reasoning_effort={}", json!(effort)),
+     ];
++    // Skipping prompts must never disable the sandbox. Start with minimal
++    // OS access, add this project, and fail closed on unsupported settings.
++    for config in [
++        "approval_policy=\"never\"",
++        "default_permissions=\"impeccable_worker\"",
++        r#"permissions.impeccable_worker.filesystem={":minimal"="read", ":workspace_roots"={"."="write", ".git"="read", ".agents"="read", ".codex"="read", ".claude"="read", "**/.env*"="deny", "**/*.pem"="deny", "**/*.key"="deny", "**/credentials*"="deny", "**/secrets/**"="deny"}}"#,
++        "permissions.impeccable_worker.network.enabled=false",
++        "features.hooks=false",
++        "features.plugins=false",
++        "features.apps=false",
++        "features.browser_use=false",
++        "features.computer_use=false",
++        "features.skill_mcp_dependency_install=false",
++        "features.multi_agent=false",
++        "features.multi_agent_v2=false",
++        "mcp_servers={}",
++        "web_search=\"disabled\"",
++        "shell_environment_policy.inherit=\"core\"",
++        "shell_environment_policy.ignore_default_excludes=false",
++        "shell_environment_policy.experimental_use_profile=false",
++    ] {
++        args.extend(["-c".into(), config.into()]);
++    }
+     if let Some(model) = env.get("IMPECCABLE_LIVE_COPY_AGENT_MODEL") {
+         if !model.is_empty() {
+             args.push("--model".into());
+@@ -1535,7 +1570,7 @@ fn run_codex(
+         }
+     }
+     args.push("-".into());
+-    run_agent_process("codex", &args, prompt, cwd, env, log_path, timeout_ms, None)
++    args
+ }
+ 
+ fn run_claude(
+@@ -1546,10 +1581,38 @@ fn run_claude(
+     log_path: &str,
+     timeout_ms: Option<f64>,
+ ) -> Result<(), String> {
++    validate_worker_root(cwd, env)?;
++    require_worker_version("claude", (2, 1, 314))?;
++    let args = claude_args(env);
++    run_agent_process(
++        "claude", &args, prompt, cwd, env, log_path, timeout_ms, Some(result_path),
++    )
++}
++
++fn claude_args(env: &Env) -> Vec<String> {
+     let mut args: Vec<String> = vec![
+         "--print".into(),
+         "--permission-mode".into(),
+-        "bypassPermissions".into(),
++        "dontAsk".into(),
++        "--safe-mode".into(),
++        "--setting-sources".into(),
++        "".into(),
++        "--strict-mcp-config".into(),
++        "--no-session-persistence".into(),
++        "--tools".into(),
++        "Read,Glob,Grep,Edit,Write".into(),
++        "--allowedTools".into(),
++        "Read(./**),Edit(./**)".into(),
++        "--settings".into(),
++        json!({"permissions": {
++            "blockReadsOutsideWorkingDirectories": true,
++            "blockWritesOutsideWorkingDirectories": true,
++            "additionalDirectories": [],
++            "deny": ["Read(**/.env*)", "Read(**/*.pem)", "Read(**/*.key)",
++                "Read(**/credentials*)", "Read(**/secrets/**)",
++                "Edit(.git/**)", "Edit(.agents/**)", "Edit(.codex/**)", "Edit(.claude/**)",
++                "Bash", "PowerShell", "WebFetch", "WebSearch", "Agent", "mcp__*"]
++        }}).to_string(),
+         "--output-format".into(),
+         "json".into(),
+     ];
+@@ -1559,16 +1622,87 @@ fn run_claude(
+             args.push(model.clone());
+         }
+     }
+-    run_agent_process(
+-        "claude",
+-        &args,
+-        prompt,
+-        cwd,
+-        env,
+-        log_path,
+-        timeout_ms,
+-        Some(result_path),
+-    )
++    args
++}
++
++fn validate_worker_root(cwd: &str, env: &Env) -> Result<(), String> {
++    let root = std::fs::canonicalize(cwd).map_err(|e| format!("Invalid worker project: {e}"))?;
++    let home = std::fs::canonicalize(impeccable_context::util::homedir(env)).ok();
++    if root.parent().is_none() || home.as_ref() == Some(&root) {
++        return Err("Choose a project directory, not a filesystem root or your home, for unattended edits.".into());
++    }
++    Ok(())
++}
++
++fn supported_worker_version(text: &str, minimum: (u64, u64, u64)) -> bool {
++    text.split_whitespace().filter_map(|part| {
++        let mut numbers = part.trim_start_matches('v').split(['.', '-']);
++        Some((numbers.next()?.parse::<u64>().ok()?, numbers.next()?.parse::<u64>().ok()?, numbers.next()?.parse::<u64>().ok()?))
++    }).any(|version| version >= minimum)
++}
++
++fn require_worker_version(command: &str, minimum: (u64, u64, u64)) -> Result<(), String> {
++    let output = Command::new(command).arg("--version").stdin(Stdio::null()).output()
++        .map_err(|e| format!("Cannot verify {command} worker permissions: {e}"))?;
++    if output.status.success() && supported_worker_version(&String::from_utf8_lossy(&output.stdout), minimum) {
++        return Ok(());
++    }
++    Err(format!("The bounded worker requires {command} {}.{}.{} or newer. Continue in the parent chat; no unrestricted retry was attempted.", minimum.0, minimum.1, minimum.2))
++}
++
++#[cfg(test)]
++mod worker_permission_tests {
++    use super::*;
++
++    #[test]
++    fn unsupported_worker_versions_fail_closed() {
++        assert!(!supported_worker_version("2.1.220 (Claude Code)", (2, 1, 314)));
++        assert!(supported_worker_version("2.1.314 (Claude Code)", (2, 1, 314)));
++        assert!(supported_worker_version("codex-cli 0.169.0-alpha.11.1", (0, 169, 0)));
++        assert!(!supported_worker_version("unknown", (0, 169, 0)));
++    }
++
++    #[test]
++    fn workers_reject_home_as_project() {
++        let root = std::env::temp_dir();
++        let root = root.to_str().unwrap();
++        let mut env = Env::new();
++        env.insert("HOME".into(), root.into());
++        env.insert("USERPROFILE".into(), root.into());
++        assert!(validate_worker_root(root, &env).is_err());
++    }
++
++    #[test]
++    fn codex_worker_keeps_a_sandbox_without_repeated_prompts() {
++        let args = codex_args("/project", &Env::new(), "/output/result.json");
++        assert!(!args.iter().any(|a| a.contains("dangerously-bypass")));
++        assert!(args.contains(&"default_permissions=\"impeccable_worker\"".to_string()));
++        assert!(args.contains(&"approval_policy=\"never\"".to_string()));
++        assert!(args.contains(&"permissions.impeccable_worker.network.enabled=false".to_string()));
++        let fs = args.iter().find(|a| a.starts_with("permissions.impeccable_worker.filesystem=")).unwrap();
++        assert!(fs.contains(":minimal"));
++        assert!(fs.contains(":workspace_roots"));
++        assert!(!fs.contains(":root"));
++        assert!(fs.contains("**/.env*"));
++        assert!(args.contains(&"--ignore-user-config".to_string()));
++        assert!(args.contains(&"features.hooks=false".to_string()));
++        assert!(args.contains(&"features.plugins=false".to_string()));
++    }
++
++    #[test]
++    fn claude_worker_allows_file_edits_but_has_no_shell_or_connector_tools() {
++        let args = claude_args(&Env::new());
++        assert!(!args.iter().any(|a| a == "bypassPermissions" || a.contains("dangerously")));
++        assert!(args.contains(&"dontAsk".to_string()));
++        assert!(args.contains(&"--safe-mode".to_string()));
++        let tools = args.windows(2).find(|a| a[0] == "--tools").unwrap();
++        assert_eq!(tools[1], "Read,Glob,Grep,Edit,Write");
++        let settings = args.windows(2).find(|a| a[0] == "--settings").unwrap();
++        let settings: Value = serde_json::from_str(&settings[1]).unwrap();
++        assert_eq!(settings["permissions"]["blockReadsOutsideWorkingDirectories"], true);
++        assert_eq!(settings["permissions"]["blockWritesOutsideWorkingDirectories"], true);
++        assert!(settings["permissions"]["deny"].as_array().unwrap().contains(&json!("Read(**/.env*)")));
++    }
+ }
+ 
+ #[allow(clippy::too_many_arguments)]
+diff --git a/local-build/.gitignore b/local-build/.gitignore
+new file mode 100644
+index 0000000..a7ba132
+--- /dev/null
++++ b/local-build/.gitignore
+@@ -0,0 +1,5 @@
++/artifacts/
++/package/
++/*.log
++/*scan.json
++/*scan.log
+diff --git a/local-build/Dockerfile b/local-build/Dockerfile
+new file mode 100644
+index 0000000..9f548b6
+--- /dev/null
++++ b/local-build/Dockerfile
+@@ -0,0 +1,9 @@
++FROM oven/bun:1@sha256:3aa040e5445efa09d75bb428a64ba50db13e2b3ac9b6b0c7f145615f62b2ee18 AS bun
++FROM rust:slim-bookworm@sha256:7c7d4eb4d05b7781187a327809466cfddf29753f6defdc3d19a0e291951b7a37
++RUN apt-get update && apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64-posix binutils-mingw-w64-x86-64 pkg-config ca-certificates git nodejs chromium && rm -rf /var/lib/apt/lists/*
++RUN rustup target add x86_64-pc-windows-gnu
++COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
++ENV CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
++ENV CC_x86_64_pc_windows_gnu=x86_64-w64-mingw32-gcc
++ENV AR_x86_64_pc_windows_gnu=x86_64-w64-mingw32-ar
++WORKDIR /src
+diff --git a/local-build/LOCAL-REVIEW.md b/local-build/LOCAL-REVIEW.md
+new file mode 100644
+index 0000000..aa7e2ae
+--- /dev/null
++++ b/local-build/LOCAL-REVIEW.md
+@@ -0,0 +1,15 @@
++# Locally patched Impeccable
++
++This is Vince's reviewed Windows distribution, built from a patched source checkout. It is not an official upstream release. The included Apache-2.0 license and upstream notices apply; local modifications are identified here and in the source patch.
++
++Use the bundled `scripts/impeccable.cmd` on Windows, or `scripts/impeccable` from Git Bash. The launcher checks the engine SHA-256 on every invocation and never downloads, updates, or substitutes an upstream/PATH binary. `scripts/local-engine.json` records the source and binary identity.
++
++The full engine and design references are included. Live-edit work uses the parent chat by default, retaining that agent's approvals. Telemetry and automatic critique/health uploads are off. No hooks or MCP servers are installed by copying this skill. Explicit feature requests can still contact websites or Impeccable services; this is not an offline-only engine.
++
++## Routine work without repeated prompts
++
++The patched workers no longer use Codex's unrestricted bypass flag or Claude's `bypassPermissions` mode. Codex uses a named permission profile with minimal OS reads, project writes, secret-file exclusions, and command networking disabled. Claude uses file tools only, no shell/connectors, and file reads/writes restricted to the project. Blocked actions fail and return to the parent chat; there is no unrestricted retry. Worker code rejects filesystem roots and the user home as unattended project scopes.
++
++These settings need compatible agent runtimes. The installed Codex Windows sandbox rejected the strict read profile because it requires root read access; this package does not weaken that profile to make it run. The installed Claude 2.1.220 predates the required file-boundary controls (2.1.314+). Consequently, standalone workers are not enabled in this Windows package. Parent-chat live edits remain available. Routine edit approval is governed by the parent application's existing policy.
++
++TLS dependency versions were raised to `rustls-webpki 0.103.16` and `webpki-roots 1.0.10`. The source patch and review document the tests, scan findings, and limitations. Future upgrades require rebuilding and reviewing the package; do not replace the engine with a stock upstream binary.
+diff --git a/local-build/README.md b/local-build/README.md
+new file mode 100644
+index 0000000..41022db
+--- /dev/null
++++ b/local-build/README.md
+@@ -0,0 +1,22 @@
++# Vince's Impeccable patch
++
++Based on upstream `next` commit `5261629497162ccdc68618421f29863db2be094a`. This work was prepared with AI assistance. It updates the affected TLS lockfile versions and replaces unrestricted coding-agent subprocesses with bounded configurations and explicit compatibility checks. It is a local distribution, not an upstream release.
++
++Read [LOCAL-REVIEW.md](LOCAL-REVIEW.md) for the Windows worker limitations. On this machine use parent-chat edits; do not relax the filesystem profile to enable an unsupported worker.
++
++## Reproduce
++
++The Dockerfile pins its two base-image digests. It installs Rust build dependencies, a Windows GNU cross-compiler, Bun, and Chromium inside the container. No account keys or home-directory mounts are needed. Keep build caches in disposable Docker volumes, not in the source archive.
++
++1. Apply the accompanying patch to the exact upstream base. Check out Markdown with LF line endings; CRLF inflates upstream's byte-budget checks.
++2. Build `local-build/Dockerfile` and mount only this checkout at `/src` plus a Cargo target cache at `/src/target`.
++3. Run `cargo +stable test --locked -p impeccable-live worker_permission_tests`, then the workspace tests. Chromium tests run in the isolated container; `chromium-test` is a container-only wrapper for root CI. Never install that wrapper as your normal browser.
++4. Build `cargo +stable build --locked --release --target x86_64-pc-windows-gnu -p impeccable`. Export `target/x86_64-pc-windows-gnu/release/impeccable.exe` to `local-build/artifacts/impeccable.exe`.
++5. For skill packaging, install only `archiver@8.0.0` in an isolated build-dependency directory with lifecycle scripts disabled. Set `NODE_PATH` to that directory's `node_modules` and run `bun scripts/build.js --skip-root-sync`. Do not enable `IMPECCABLE_BUNDLE_ENGINE`; that fetches upstream engines.
++6. Commit the reviewed source, then run `python local-build/package.py`. It stages `local-build/package/impeccable`, adds the local launchers and source/binary manifest, and preserves upstream's license.
++7. Repeat NVIDIA SkillSpector `--no-llm` and manual review on that exact package. `audit-dependencies.py` sends public Cargo package names and versions to OSV. Review incomplete scanner coverage; do not treat a score as a safety guarantee.
++8. Verify the Windows launcher, detector, missing/hash-mismatched engine refusal, and parent-chat live flow before copying the package into active skill folders.
++
++`verify-sandbox.mjs` calls no LLM: it tests the real Codex sandbox with synthetic files and a loopback server. Its observed Windows rejection is why unattended Codex workers are disabled on Windows in this patch. Claude workers require 2.1.314+; they have file tools only and no shell, browser, or connector tools. Neither worker retries with unrestricted permissions.
++
++The generic engine CLI retains its upstream command set. The installed local launchers pin the binary, prohibit self-updates, disable Pro dispatch and telemetry, and select the parent-chat provider. Running the binary directly bypasses these distribution defaults; use the launchers for normal work.
+diff --git a/local-build/audit-dependencies.py b/local-build/audit-dependencies.py
+new file mode 100644
+index 0000000..a0af743
+--- /dev/null
++++ b/local-build/audit-dependencies.py
+@@ -0,0 +1,20 @@
++"""Check locked Cargo packages via OSV; sends package names and versions only."""
++import json
++from pathlib import Path
++import tomllib
++import urllib.request
++
++root = Path(__file__).resolve().parents[1]
++lock = tomllib.loads((root / 'Cargo.lock').read_text(encoding='utf-8'))
++packages = [p for p in lock['package'] if p.get('source', '').startswith('registry+')]
++queries = [{'package': {'name': p['name'], 'ecosystem': 'crates.io'}, 'version': p['version']} for p in packages]
++request = urllib.request.Request('https://api.osv.dev/v1/querybatch', data=json.dumps({'queries': queries}).encode(), headers={'Content-Type': 'application/json'})
++with urllib.request.urlopen(request, timeout=60) as response:
++    result = json.load(response)
++if len(result['results']) != len(packages):
++    raise RuntimeError('Incomplete OSV response')
++findings = [{'name': p['name'], 'version': p['version'], 'vulnerabilities': r['vulns']} for p, r in zip(packages, result['results']) if r.get('vulns')]
++report = {'service': 'https://api.osv.dev/v1/querybatch', 'packages_checked': len(packages), 'findings': findings}
++(root / 'local-build' / 'dependency-review.json').write_text(json.dumps(report, indent=2) + '\n', encoding='utf-8')
++print(json.dumps(report, indent=2))
++raise SystemExit(bool(findings))
+diff --git a/local-build/chromium-test b/local-build/chromium-test
+new file mode 100644
+index 0000000..0ddad58
+--- /dev/null
++++ b/local-build/chromium-test
+@@ -0,0 +1,3 @@
++#!/bin/sh
++# Only for Chromium running as root inside the isolated test container.
++exec /usr/bin/chromium-real --no-sandbox "$@"
+diff --git a/local-build/dependency-review.json b/local-build/dependency-review.json
+new file mode 100644
+index 0000000..1808e64
+--- /dev/null
++++ b/local-build/dependency-review.json
+@@ -0,0 +1,5 @@
++{
++  "service": "https://api.osv.dev/v1/querybatch",
++  "packages_checked": 200,
++  "findings": []
++}
+diff --git a/local-build/launchers/impeccable b/local-build/launchers/impeccable
+new file mode 100644
+index 0000000..9e4d969
+--- /dev/null
++++ b/local-build/launchers/impeccable
+@@ -0,0 +1,14 @@
++#!/bin/sh
++# This local package includes the reviewed Windows engine only.
++set -eu
++here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
++case "$(uname -s)" in
++  MINGW*|MSYS*|CYGWIN*)
++    script=$(cygpath -w "$here/impeccable.ps1")
++    exec powershell.exe -NoProfile -File "$script" "$@"
++    ;;
++  *)
++    echo 'This package contains a reviewed Windows engine. Build and review a native binary for this platform; no download was attempted.' >&2
++    exit 1
++    ;;
++esac
+diff --git a/local-build/launchers/impeccable.cmd b/local-build/launchers/impeccable.cmd
+new file mode 100644
+index 0000000..d910d79
+--- /dev/null
++++ b/local-build/launchers/impeccable.cmd
+@@ -0,0 +1,4 @@
++@echo off
++setlocal
++powershell.exe -NoProfile -File "%~dp0impeccable.ps1" %*
++exit /b %errorlevel%
+diff --git a/local-build/launchers/impeccable.ps1 b/local-build/launchers/impeccable.ps1
+new file mode 100644
+index 0000000..4f3b04c
+--- /dev/null
++++ b/local-build/launchers/impeccable.ps1
+@@ -0,0 +1,13 @@
++$ErrorActionPreference = 'Stop'
++# This reviewed distribution never searches PATH or downloads an engine.
++$engine = Join-Path $PSScriptRoot 'bin\windows-x64\impeccable.exe'
++$manifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'local-engine.json') -Raw | ConvertFrom-Json
++if (-not (Test-Path -LiteralPath $engine -PathType Leaf)) { throw 'Reviewed local engine is missing. Rebuild this package; no download was attempted.' }
++if ((Get-FileHash -LiteralPath $engine -Algorithm SHA256).Hash.ToLowerInvariant() -ne $manifest.sha256) { throw 'Reviewed local engine hash mismatch. Refusing to run.' }
++if ($args.Count -gt 0 -and $args[0] -in @('install', 'update', 'upgrade', 'pro')) { throw 'This reviewed local runtime is pinned. Update and review the patched source first.' }
++$env:IMPECCABLE_BIN = $engine
++$env:IMPECCABLE_PRO = 'off'
++$env:IMPECCABLE_NO_TELEMETRY = '1'
++$env:IMPECCABLE_LIVE_COPY_AGENT = 'chat'
++& $engine @args
++exit $LASTEXITCODE
+diff --git a/local-build/package.py b/local-build/package.py
+new file mode 100644
+index 0000000..5d47989
+--- /dev/null
++++ b/local-build/package.py
+@@ -0,0 +1,42 @@
++"""Stage this reviewed Windows skill without executing upstream installers."""
++from pathlib import Path
++import hashlib
++import json
++import shutil
++import subprocess
++
++root = Path(__file__).resolve().parents[1]
++destination = root / 'local-build' / 'package' / 'impeccable'
++if destination.exists():
++    raise SystemExit('Package already exists; preserve the reviewed copy and use a fresh staging path.')
++source = root / 'dist' / 'agents' / '.agents' / 'skills' / 'impeccable'
++binary = root / 'local-build' / 'artifacts' / 'impeccable.exe'
++if not (source / 'SKILL.md').is_file() or not binary.is_file():
++    raise SystemExit('Build the skill and Windows engine first.')
++shutil.copytree(source, destination)
++for name in ('impeccable', 'impeccable.cmd', 'impeccable.ps1'):
++    text = (root / 'local-build' / 'launchers' / name).read_text(encoding='utf-8')
++    newline = '\r\n' if name.endswith('.cmd') else '\n'
++    (destination / 'scripts' / name).write_text(text, encoding='utf-8', newline=newline)
++engine_dir = destination / 'scripts' / 'bin' / 'windows-x64'
++engine_dir.mkdir(parents=True)
++shutil.copy2(binary, engine_dir / binary.name)
++shutil.copy2(root / 'LICENSE', destination / 'LICENSE')
++shutil.copy2(root / 'local-build' / 'LOCAL-REVIEW.md', destination / 'LOCAL-REVIEW.md')
++source_commit = subprocess.check_output(['git', '-C', str(root), 'rev-parse', 'HEAD'], text=True).strip()
++manifest = {
++    'distribution': 'vince-reviewed-windows-1',
++    'upstream_base': '5261629497162ccdc68618421f29863db2be094a',
++    'source_commit': source_commit,
++    'platform': 'windows-x64',
++    'sha256': hashlib.sha256(binary.read_bytes()).hexdigest(),
++    'worker_mode': 'parent-chat',
++}
++(destination / 'scripts' / 'local-engine.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
++skill = destination / 'SKILL.md'
++text = skill.read_text(encoding='utf-8')
++frontmatter_end = text.index('\n---', 3) + len('\n---')
++notice = '\n\nRead [LOCAL-REVIEW.md](LOCAL-REVIEW.md) before the first use. This is a locally patched Windows distribution: use its bundled launcher, retain parent-chat approvals, and never replace it with an npm or upstream engine.\n'
++skill.write_text(text[:frontmatter_end] + notice + text[frontmatter_end:], encoding='utf-8', newline='\n')
++print(json.dumps(manifest, indent=2))
++print(destination)
+diff --git a/local-build/verify-sandbox.mjs b/local-build/verify-sandbox.mjs
+new file mode 100644
+index 0000000..269cf12
+--- /dev/null
++++ b/local-build/verify-sandbox.mjs
+@@ -0,0 +1,53 @@
++// Exercise the actual Codex sandbox with synthetic files; no model is called.
++import fs from 'node:fs';
++import path from 'node:path';
++import os from 'node:os';
++import { spawn } from 'node:child_process';
++import http from 'node:http';
++
++const root = fs.mkdtempSync(path.join(os.tmpdir(), 'impeccable-permissions-'));
++const project = path.join(root, 'project');
++fs.mkdirSync(project);
++fs.writeFileSync(path.join(project, 'allowed.txt'), 'synthetic fixture');
++fs.writeFileSync(path.join(project, '.env.test'), 'SYNTHETIC_SECRET=not-a-real-secret');
++fs.writeFileSync(path.join(root, 'outside.txt'), 'synthetic outside fixture');
++const server = http.createServer((_req, res) => res.end('reachable'));
++await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
++const port = server.address().port;
++const childSource = `
++const fs = require('node:fs');
++const http = require('node:http');
++const results = {};
++results.projectRead = fs.readFileSync('allowed.txt', 'utf8') === 'synthetic fixture';
++fs.writeFileSync('created.txt', 'routine edit');
++results.projectWrite = fs.existsSync('created.txt');
++for (const [key, action] of [
++  ['outsideReadDenied', () => fs.readFileSync(${JSON.stringify(path.join(root, 'outside.txt'))})],
++  ['outsideWriteDenied', () => fs.writeFileSync(${JSON.stringify(path.join(root, 'outside-write.txt'))}, 'bad')],
++  ['secretReadDenied', () => fs.readFileSync('.env.test')]
++]) { try { action(); results[key] = false; } catch { results[key] = true; } }
++const req = http.get('http://127.0.0.1:${port}', () => { results.networkDenied = false; done(); });
++req.setTimeout(3000, () => req.destroy(new Error('blocked or timed out')));
++req.on('error', () => { results.networkDenied = true; done(); });
++let finished = false;
++function done() { if (finished) return; finished = true; console.log(JSON.stringify(results)); process.exit(Object.values(results).every(Boolean) ? 0 : 1); }
++`;
++fs.writeFileSync(path.join(project, 'probe.cjs'), childSource);
++const source = fs.readFileSync(new URL('../crates/live/src/copy_edit_agent.rs', import.meta.url), 'utf8');
++const filesystem = source.match(/r#"(permissions\.impeccable_worker\.filesystem=.*)"#,/)?.[1];
++if (!filesystem) throw new Error('Worker filesystem policy not found');
++const args = ['sandbox', '-C', project, '-P', 'impeccable_worker', '-c', filesystem,
++  '-c', 'permissions.impeccable_worker.network.enabled=false', '--', process.execPath, 'probe.cjs'];
++const child = spawn('codex', args, { stdio: ['ignore', 'pipe', 'pipe'] });
++let out = '', err = '';
++child.stdout.on('data', data => { out += data; });
++child.stderr.on('data', data => { err += data; });
++const timer = setTimeout(() => child.kill(), 45000);
++child.on('error', error => { err += String(error); });
++const code = await new Promise(resolve => child.on('close', resolve));
++clearTimeout(timer);
++server.close();
++console.log(out.trim());
++if (err.trim()) console.error(err.trim());
++console.log('Synthetic fixtures retained at:', root);
++process.exitCode = code === 0 ? 0 : 1;
+-- 
+2.55.0.windows.2
+

@@ -1,0 +1,8 @@
+{
+  "distribution": "vince-reviewed-windows-1",
+  "upstream_base": "5261629497162ccdc68618421f29863db2be094a",
+  "source_commit": "b627afbc74fedb7983103f6bfd173dc1329b13f3",
+  "platform": "windows-x64",
+  "sha256": "c27021bacb38f32c5b28ddcd1cb901d24897d6ec1549cb1afe132050b6087fac",
+  "worker_mode": "parent-chat"
+}

@@ -1,0 +1,14 @@
+#!/bin/sh
+# This local package includes the reviewed Windows engine only.
+set -eu
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    script=$(cygpath -w "$here/impeccable.ps1")
+    exec powershell.exe -NoProfile -File "$script" "$@"
+    ;;
+  *)
+    echo 'This package contains a reviewed Windows engine. Build and review a native binary for this platform; no download was attempted.' >&2
+    exit 1
+    ;;
+esac

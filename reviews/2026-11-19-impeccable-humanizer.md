@@ -1,5 +1,7 @@
 # Humanizer and Impeccable review — November 19, 2026
 
+Historical review of the stock upstream artifacts. A subsequent user-authorized local patch is documented in the [follow-up review](2026-11-19-impeccable-local-patch.md); only that patched Windows distribution was approved for scoped use.
+
 ## Decisions
 
 - **Humanizer: APPROVE** the three-file payload in `skills/humanizer`, after independently resolving the scanner's false positives. Installed locally and verified byte-for-byte.

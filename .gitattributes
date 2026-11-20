@@ -1,0 +1,2 @@
+# Preserve the exact reviewed distribution, including LF sh and CRLF cmd launchers.
+skills/impeccable/** -text

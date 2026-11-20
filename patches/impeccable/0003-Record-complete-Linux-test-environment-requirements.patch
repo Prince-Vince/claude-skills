@@ -1,0 +1,39 @@
+From 43ef63ce75f61f6dc2503a4fb6a7825341d3e10d Mon Sep 17 00:00:00 2001
+From: Prince-Vince <Vince21494@gmail.com>
+Date: Thu, 19 Nov 2026 19:17:10 -0600
+Subject: [PATCH 3/3] Record complete Linux test environment requirements
+
+Prepared with AI assistance. Include curl and preserve LF source text for Linux-based verification.
+---
+ local-build/Dockerfile | 2 +-
+ local-build/README.md  | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/local-build/Dockerfile b/local-build/Dockerfile
+index 9f548b6..855f75b 100644
+--- a/local-build/Dockerfile
++++ b/local-build/Dockerfile
+@@ -1,6 +1,6 @@
+ FROM oven/bun:1@sha256:3aa040e5445efa09d75bb428a64ba50db13e2b3ac9b6b0c7f145615f62b2ee18 AS bun
+ FROM rust:slim-bookworm@sha256:7c7d4eb4d05b7781187a327809466cfddf29753f6defdc3d19a0e291951b7a37
+-RUN apt-get update && apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64-posix binutils-mingw-w64-x86-64 pkg-config ca-certificates git nodejs chromium && rm -rf /var/lib/apt/lists/*
++RUN apt-get update && apt-get install -y --no-install-recommends gcc-mingw-w64-x86-64-posix binutils-mingw-w64-x86-64 pkg-config ca-certificates curl git nodejs chromium && rm -rf /var/lib/apt/lists/*
+ RUN rustup target add x86_64-pc-windows-gnu
+ COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
+ ENV CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc
+diff --git a/local-build/README.md b/local-build/README.md
+index 41022db..b9db81e 100644
+--- a/local-build/README.md
++++ b/local-build/README.md
+@@ -8,7 +8,7 @@ Read [LOCAL-REVIEW.md](LOCAL-REVIEW.md) for the Windows worker limitations. On t
+ 
+ The Dockerfile pins its two base-image digests. It installs Rust build dependencies, a Windows GNU cross-compiler, Bun, and Chromium inside the container. No account keys or home-directory mounts are needed. Keep build caches in disposable Docker volumes, not in the source archive.
+ 
+-1. Apply the accompanying patch to the exact upstream base. Check out Markdown with LF line endings; CRLF inflates upstream's byte-budget checks.
++1. Apply the accompanying patch to the exact upstream base. Use `core.autocrlf=false` for this Linux build checkout; CRLF breaks shell shebangs, workflow assertions, and byte-budget checks. Windows `.cmd` launchers must retain CRLF.
+ 2. Build `local-build/Dockerfile` and mount only this checkout at `/src` plus a Cargo target cache at `/src/target`.
+ 3. Run `cargo +stable test --locked -p impeccable-live worker_permission_tests`, then the workspace tests. Chromium tests run in the isolated container; `chromium-test` is a container-only wrapper for root CI. Never install that wrapper as your normal browser.
+ 4. Build `cargo +stable build --locked --release --target x86_64-pc-windows-gnu -p impeccable`. Export `target/x86_64-pc-windows-gnu/release/impeccable.exe` to `local-build/artifacts/impeccable.exe`.
+-- 
+2.55.0.windows.2
+

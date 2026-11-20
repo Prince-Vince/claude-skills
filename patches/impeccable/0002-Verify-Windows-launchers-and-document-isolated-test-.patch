@@ -1,0 +1,110 @@
+From 07331f5487dbb1e7ea36d147885881c481c1b874 Mon Sep 17 00:00:00 2001
+From: Prince-Vince <Vince21494@gmail.com>
+Date: Thu, 19 Nov 2026 19:11:48 -0600
+Subject: [PATCH 2/3] Verify Windows launchers and document isolated test
+ adapters
+
+Prepared with AI assistance. Use built-in .NET hashing for Windows PowerShell compatibility and test native detection plus tamper refusal.
+---
+ local-build/.gitignore               |  2 ++
+ local-build/bun-test                 |  7 +++++
+ local-build/launchers/impeccable.ps1 |  6 +++-
+ local-build/smoke-windows.mjs        | 45 ++++++++++++++++++++++++++++
+ 4 files changed, 59 insertions(+), 1 deletion(-)
+ create mode 100644 local-build/bun-test
+ create mode 100644 local-build/smoke-windows.mjs
+
+diff --git a/local-build/.gitignore b/local-build/.gitignore
+index a7ba132..79a9f4e 100644
+--- a/local-build/.gitignore
++++ b/local-build/.gitignore
+@@ -3,3 +3,5 @@
+ /*.log
+ /*scan.json
+ /*scan.log
++/smoke-fixture-*/
++/smoke-results.json
+diff --git a/local-build/bun-test b/local-build/bun-test
+new file mode 100644
+index 0000000..7b7c496
+--- /dev/null
++++ b/local-build/bun-test
+@@ -0,0 +1,7 @@
++#!/bin/sh
++# Container-only: Windows bind-mount I/O can exceed Bun's default 5s hook budget.
++if [ "${1:-}" = test ]; then
++  shift
++  exec /usr/local/bin/bun test --timeout 20000 "$@"
++fi
++exec /usr/local/bin/bun "$@"
+diff --git a/local-build/launchers/impeccable.ps1 b/local-build/launchers/impeccable.ps1
+index 4f3b04c..05df2f0 100644
+--- a/local-build/launchers/impeccable.ps1
++++ b/local-build/launchers/impeccable.ps1
+@@ -3,7 +3,11 @@ $ErrorActionPreference = 'Stop'
+ $engine = Join-Path $PSScriptRoot 'bin\windows-x64\impeccable.exe'
+ $manifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'local-engine.json') -Raw | ConvertFrom-Json
+ if (-not (Test-Path -LiteralPath $engine -PathType Leaf)) { throw 'Reviewed local engine is missing. Rebuild this package; no download was attempted.' }
+-if ((Get-FileHash -LiteralPath $engine -Algorithm SHA256).Hash.ToLowerInvariant() -ne $manifest.sha256) { throw 'Reviewed local engine hash mismatch. Refusing to run.' }
++$hasher = [System.Security.Cryptography.SHA256]::Create()
++$stream = [System.IO.File]::OpenRead($engine)
++try { $digest = [BitConverter]::ToString($hasher.ComputeHash($stream)).Replace('-', '').ToLowerInvariant() }
++finally { $stream.Dispose(); $hasher.Dispose() }
++if ($digest -ne $manifest.sha256) { throw 'Reviewed local engine hash mismatch. Refusing to run.' }
+ if ($args.Count -gt 0 -and $args[0] -in @('install', 'update', 'upgrade', 'pro')) { throw 'This reviewed local runtime is pinned. Update and review the patched source first.' }
+ $env:IMPECCABLE_BIN = $engine
+ $env:IMPECCABLE_PRO = 'off'
+diff --git a/local-build/smoke-windows.mjs b/local-build/smoke-windows.mjs
+new file mode 100644
+index 0000000..4deb65e
+--- /dev/null
++++ b/local-build/smoke-windows.mjs
+@@ -0,0 +1,45 @@
++import fs from 'node:fs';
++import path from 'node:path';
++import http from 'node:http';
++import { spawn } from 'node:child_process';
++import { fileURLToPath } from 'node:url';
++
++const root = path.dirname(fileURLToPath(import.meta.url));
++const launcher = path.join(root, 'package/impeccable/scripts/impeccable.ps1');
++const fixture = fs.mkdtempSync(path.join(root, 'smoke-fixture-'));
++const html = '<!doctype html><html><head><title>Local smoke fixture</title></head><body><main><h1>Project preview</h1><p style="font-size:9px;color:#ddd;background:#fff">Small low-contrast text for the detector.</p><button>Continue</button></main></body></html>';
++fs.writeFileSync(path.join(fixture, 'index.html'), html);
++async function run(file, args) {
++  const child = spawn('powershell.exe', ['-NoProfile', '-File', file, ...args], { cwd: fixture, windowsHide: true });
++  let stdout = '', stderr = '';
++  child.stdout.on('data', data => { stdout += data; });
++  child.stderr.on('data', data => { stderr += data; });
++  const timer = setTimeout(() => child.kill(), 60000);
++  const code = await new Promise((resolve, reject) => { child.on('close', resolve); child.on('error', reject); });
++  clearTimeout(timer);
++  return { code, stdout, stderr };
++}
++const results = {};
++const handshake = await run(launcher, ['engine-probe']);
++results.handshake = handshake.code === 0 && handshake.stdout.includes('impeccable-engine');
++const file = await run(launcher, ['detect', '--json', path.join(fixture, 'index.html')]);
++try { const findings = JSON.parse(file.stdout); results.fileDetection = file.code === 2 && findings.some(f => f.antipattern === 'low-contrast') && findings.some(f => f.antipattern === 'tiny-text'); } catch { results.fileDetection = false; }
++const server = http.createServer((_request, response) => { response.setHeader('Content-Type', 'text/html'); response.end(html); });
++await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
++const url = await run(launcher, ['detect', '--json', `http://127.0.0.1:${server.address().port}`]);
++server.close();
++try { const findings = JSON.parse(url.stdout); results.browserDetection = url.code === 2 && findings.some(f => f.antipattern === 'low-contrast') && findings.some(f => f.antipattern === 'tiny-text'); } catch { results.browserDetection = false; }
++const update = await run(launcher, ['update']);
++results.updateRefused = update.code !== 0 && update.stderr.includes('pinned');
++const scripts = path.join(fixture, 'tamper/scripts');
++fs.mkdirSync(path.join(scripts, 'bin/windows-x64'), { recursive: true });
++fs.copyFileSync(launcher, path.join(scripts, 'impeccable.ps1'));
++fs.copyFileSync(path.join(path.dirname(launcher), 'local-engine.json'), path.join(scripts, 'local-engine.json'));
++const missing = await run(path.join(scripts, 'impeccable.ps1'), ['engine-probe']);
++results.missingBinaryRefused = missing.code !== 0 && missing.stderr.includes('missing');
++fs.writeFileSync(path.join(scripts, 'bin/windows-x64/impeccable.exe'), 'Synthetic tamper fixture, not executable code');
++const tampered = await run(path.join(scripts, 'impeccable.ps1'), ['engine-probe']);
++results.tamperedBinaryRefused = tampered.code !== 0 && tampered.stderr.includes('hash mismatch');
++fs.writeFileSync(path.join(root, 'smoke-results.json'), JSON.stringify({ results, handshake, file, url, update, missing, tampered }, null, 2));
++console.log(JSON.stringify(results, null, 2));
++process.exitCode = Object.values(results).every(Boolean) ? 0 : 1;
+-- 
+2.55.0.windows.2
+

@@ -8,7 +8,7 @@
 - Reviewed using NVIDIA SkillSpector 2.11.2 `--no-llm` plus independent source inspection. See [findings and limitations](reviews/2026-11-19-impeccable-humanizer.md).
 - [Portable install helper and agent locations](SHARED-SKILLS.md). Local copies were verified against the repository payload.
 
-Impeccable was also downloaded and reviewed at commit `b49177d32788f2dc585c42831d845dacf1ebed2c`, but its full runtime was rejected for installation at the reviewed revisions. It is deliberately absent from discoverable skill folders; the review records its pinned sources and blockers.
+The stock Impeccable runtime at `b49177d32788f2dc585c42831d845dacf1ebed2c` was initially rejected. At the user's request, we then patched upstream base `5261629497162ccdc68618421f29863db2be094a`, built and reviewed our own Windows runtime, and packaged it in `skills/impeccable`. Its license, local change notice, binary hash, source pins, and limitations are retained. See the [follow-up review](reviews/2026-11-19-impeccable-local-patch.md) and [source patches](patches/impeccable).
 
 ## Scrolling presentation kit — 2026-09-25
 

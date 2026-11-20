@@ -2,7 +2,7 @@
 
 ## Shared Humanizer skill — added November 19, 2026
 
-[Humanizer 4.0.0](skills/humanizer) is available for compatible agents and models. See [shared installation instructions](SHARED-SKILLS.md) and the [source/security review](reviews/2026-11-19-impeccable-humanizer.md). The full Impeccable runtime was downloaded and reviewed but is not installed or bundled because its reviewed releases retain vulnerable TLS dependencies.
+[Humanizer 4.0.0](skills/humanizer) and a [locally patched Impeccable Windows runtime](skills/impeccable) are available for compatible agents and models. See [shared installation instructions](SHARED-SKILLS.md), the [original review](reviews/2026-11-19-impeccable-humanizer.md), and the [Impeccable patch review](reviews/2026-11-19-impeccable-local-patch.md). The local runtime fixes the TLS dependencies and retains parent-chat approvals instead of unrestricted worker bypasses.
 
 ## Scrolling presentation kit — added September 25, 2026
 
